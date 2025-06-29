@@ -209,7 +209,7 @@ const DashboardPage = () => {
     <div className="dashboard">
       <div className="dashboard-header">
         <div>
-          <h1 className="heading-lg">Hi,Welcome back, {user?.fullName || user?.username}!</h1>
+          <h1 className="heading-lg">Welcome back, {user?.fullName || user?.username}!</h1>
           <p className="text-secondary">Here's your content summarization overview</p>
         </div>
         <button className="btn btn-primary" onClick={openAddModal}>
@@ -765,4 +765,4 @@ const DashboardPage = () => {
   );
 };
 
-export default DashboardPage;
+export default DashboardPage; 
