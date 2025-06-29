@@ -432,29 +432,22 @@ router.get('/', auth, async (req, res) => {
 // @route   GET /api/content/:id
 // @desc    Get specific content by ID
 // @access  Private
-router.get('/:id', auth, async (req, res) => {
-  if (!req.user) {
-    return res.status(401).json({ message: 'Authentication required' });
+// Fix: Prevent /:id route from matching reserved words like 'public'
+router.get('/:id', auth, async (req, res, next) => {
+  const reserved = ['public', 'feed', 'search', 'user'];
+  // Only allow valid ObjectId for :id param
+  if (reserved.includes(req.params.id) || !/^[a-fA-F0-9]{24}$/.test(req.params.id)) {
+    return next(); // Pass to next route
   }
-
   try {
-    const content = await Content.findOne({
-      _id: req.params.id,
-      $or: [
-        { user: req.user._id }, // User's own content
-        { isPublic: true } // Public content
-      ]
-    }).populate('user', 'username fullName avatar');
-
+    const content = await Content.findOne({ _id: req.params.id, user: req.user._id });
     if (!content) {
       return res.status(404).json({ message: 'Content not found' });
     }
-
     res.json({ content });
-
   } catch (error) {
     console.error('Get content by ID error:', error);
-    res.status(500).json({ message: 'Server error while fetching content' });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
@@ -767,6 +760,48 @@ router.get('/user/:userId', async (req, res) => {
     console.error('User content fetch error:', error);
     res.status(500).json({ message: 'Server error while fetching user content' });
   }
+});
+
+// @route   POST /api/content/bulk-upload
+// @desc    Bulk upload content from extension/LLM server
+// @access  Private (requires valid JWT)
+router.post('content/bulk-upload', auth, async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Authentication required' });
+  }
+  const contentItems = req.body.contentItems || [];
+  if (!Array.isArray(contentItems) || contentItems.length === 0) {
+    return res.status(400).json({ message: 'No content items provided' });
+  }
+  let successCount = 0;
+  let errors = [];
+  for (const item of contentItems) {
+    try {
+      // Validate and save each item using the same logic as single POST /api/content
+      const { error, value } = contentSchema.validate(item);
+      if (error) {
+        errors.push({ url: item.url, error: error.details.map(e => e.message) });
+        continue;
+      }
+      // Check for duplicate
+      const existingContent = await Content.findOne({ user: req.user._id, url: value.url });
+      if (existingContent) {
+        errors.push({ url: value.url, error: 'Content already exists' });
+        continue;
+      }
+      const newContent = new Content({ ...value, user: req.user._id });
+      await newContent.save();
+      successCount++;
+    } catch (err) {
+      errors.push({ url: item.url, error: err.message });
+    }
+  }
+  res.json({
+    message: `Bulk upload complete: ${successCount} succeeded, ${errors.length} failed`,
+    successCount,
+    errorCount: errors.length,
+    errors
+  });
 });
 
 module.exports = router;
