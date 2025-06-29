@@ -20,14 +20,26 @@ const RegisterPage = () => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    
-    try {
-      await register(formData);
-    } catch (error) {
-      setError(error.message || 'Registration failed');
-    } finally {
+    // Ensure all required fields are trimmed and present
+    const payload = {
+      email: formData.email.trim(),
+      password: formData.password,
+      username: formData.username.trim(),
+      fullName: formData.fullName ? formData.fullName.trim() : ''
+    };
+    if (!payload.email || !payload.password || !payload.username) {
+      setError('All fields except full name are required.');
       setLoading(false);
+      return;
     }
+    const result = await register(payload);
+    if (result.success) {
+      // Redirect to login or dashboard, or show a success message
+      window.location.href = '/login'; // or use navigate('/login') if using react-router v6+
+    } else {
+      setError(result.error || 'Registration failed');
+    }
+    setLoading(false);
   };
 
   const handleChange = (e) => {

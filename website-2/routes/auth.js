@@ -19,9 +19,9 @@ const router = express.Router();
 // Registration validation - ensures all required fields are properly formatted
 const registerSchema = Joi.object({
   email: Joi.string().email().required(),                    // Must be valid email format
-  password: Joi.string().min(6).required(),                  // Minimum 6 characters for security
-  username: Joi.string().alphanum().min(3).max(30).required(), // Alphanumeric, 3-30 chars
-  fullName: Joi.string().max(100).optional()                 // Optional display name
+  password: Joi.string().min(5).required(),                  // Minimum 5 characters for security (lowered from 6)
+  username: Joi.string().regex(/^[a-zA-Z0-9_]+$/).min(3).max(30).required(), // Alphanumeric/underscore, 3-30 chars
+  fullName: Joi.string().max(100).allow('').optional()       // Optional display name, allow empty string
 });
 
 // Login validation - simpler since we just need email and password
@@ -49,9 +49,25 @@ const generateToken = (userId) => {
 // This is a public endpoint that anyone can access
 router.post('/register', async (req, res) => {
   try {
-    // First, validate that the user provided all required data in correct format
+    // DEBUG: Log the registration request body and content-type
+    console.log('Registration request body:', req.body);
+    console.log('Content-Type:', req.headers['content-type']);
+    // If body is empty, force parse as JSON
+    if (!req.body || Object.keys(req.body).length === 0) {
+      let rawData = '';
+      req.on('data', chunk => { rawData += chunk; });
+      req.on('end', () => {
+        try {
+          const parsed = JSON.parse(rawData);
+          req.body = parsed;
+        } catch (e) {
+          return res.status(400).json({ message: 'Malformed JSON in request body' });
+        }
+      });
+    }
     const { error, value } = registerSchema.validate(req.body);
     if (error) {
+      console.error('Registration validation error:', error.details);
       return res.status(400).json({ 
         message: 'Registration validation failed', 
         errors: error.details.map(detail => detail.message) 

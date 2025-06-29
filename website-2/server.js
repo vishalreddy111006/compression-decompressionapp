@@ -1,5 +1,3 @@
-
-
 const express = require('express');     // Web framework for Node.js
 const mongoose = require('mongoose');   // MongoDB object modeling for Node.js
 const cors = require('cors');          // Cross-Origin Resource Sharing middleware
@@ -56,7 +54,7 @@ const corsOptions = {
     // Define allowed origins for security
     const allowedOrigins = [
       'http://localhost:3000',        // Original React frontend
-      'http://localhost:3001',        // Backend self-requests  
+      'http://localhost:5002',        // Backend self-requests  
       'http://localhost:3002',        // Website-2 React frontend
       'chrome-extension://*',         // Any Chrome extension ID (for our extension)
       ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [])
@@ -185,10 +183,7 @@ app.use('*', (req, res) => {
 // ============================================
 // Connect to MongoDB database where we store user data and summaries
 // Note: We only store AI-generated summaries, never original content (privacy-first!)
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/content-summarizer', {
-  useNewUrlParser: true,    // Use new URL parser to avoid deprecation warnings
-  useUnifiedTopology: true, // Use new Server Discovery and Monitoring engine
-})
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/content-summarizer')
 .then(() => {
   console.log('✅ Connected to MongoDB database');
   console.log('🔒 Privacy Note: Only summaries stored, never original content');
@@ -202,13 +197,13 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/content-s
 // SERVER STARTUP
 // ============================================
 // Start the Express server and display helpful information
-const PORT = process.env.PORT || 5002; // Different port for website-2 backend
+const PORT = 5002;
 const server = app.listen(PORT, () => {
   console.log('🚀 Privacy-First Content Summarizer Server Started');
-  console.log(`� Server running on port ${PORT}`);
-  console.log(`� Health check: http://localhost:${PORT}/health`);
-  console.log(`🔗 API base URL: http://localhost:${PORT}/api`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Health check: http://localhost:${PORT}/health`);
+  console.log(`API base URL: http://localhost:${PORT}/api`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log('🔒 Privacy-first architecture: Raw content never transmitted!');
 });
 
@@ -220,24 +215,22 @@ const server = app.listen(PORT, () => {
 // Handle SIGTERM (termination signal)
 process.on('SIGTERM', () => {
   console.log('🛑 SIGTERM received, shutting down gracefully...');
-  server.close(() => {
+  server.close(async () => {
     console.log('✅ HTTP server closed');
-    mongoose.connection.close(false, () => {
-      console.log('✅ MongoDB connection closed');
-      process.exit(0);
-    });
+    await mongoose.connection.close();
+    console.log('✅ MongoDB connection closed');
+    process.exit(0);
   });
 });
 
 // Handle SIGINT (interrupt signal - Ctrl+C)
 process.on('SIGINT', () => {
   console.log('🛑 SIGINT received, shutting down gracefully...');
-  server.close(() => {
+  server.close(async () => {
     console.log('✅ HTTP server closed');
-    mongoose.connection.close(false, () => {
-      console.log('✅ MongoDB connection closed');
-      process.exit(0);
-    });
+    await mongoose.connection.close();
+    console.log('✅ MongoDB connection closed');
+    process.exit(0);
   });
 });
 
